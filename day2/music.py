@@ -8,58 +8,96 @@
 - Modify your MUSIC implement to make use of the signal subspace eigenvectors 
   instead of the noise subspace eigenvectors.
 '''
+import matplotlib
+matplotlib.use("Qt5Agg")
 from matplotlib import pyplot as plt
 import numpy as np 
 
 def generate_signal(N, fs, k, plot=False):
-    np.random.seed(42)
-    t = np.arange(N) / fs
+  np.random.seed(42)
+  t = np.arange(N) / fs
 
-    a = np.random.normal(0, 10, k)
-    f = np.random.normal(0, fs/2, k)
-    phi = np.random.uniform(-np.pi, np.pi, k)
+  a = np.random.normal(0, 10, k)
+  f = np.random.uniform(0, fs/2, k)
+  phi = np.random.uniform(-np.pi, np.pi, k)
 
-    # Reshape for broadcasting: (k, 1) for a, f, phi; (1, N) for t
-    a = a[:, np.newaxis]
-    f = f[:, np.newaxis]
-    phi = phi[:, np.newaxis]
-    t = t[np.newaxis, :]
-    x = np.sum(a * np.exp(1j * 2 * np.pi * f * t + 1j * phi), axis=0)
+  a = a[:, np.newaxis]
+  f = f[:, np.newaxis]
+  phi = phi[:, np.newaxis]
+  t = t[np.newaxis, :]
+  x = np.sum(a * np.exp(1j * 2 * np.pi * f * t + 1j * phi), axis=0)
 
-    # Add complex Gaussian noise
-    noise_real = np.random.normal(0, 5, size=N)
-    noise_imag = np.random.normal(0, 5, size=N)
-    noise = noise_real + 1j * noise_imag
-    
-    x = x + noise
+  noise_real = np.random.normal(0, 5, size=N)
+  noise_imag = np.random.normal(0, 5, size=N)
+  noise = noise_real + 1j * noise_imag
 
-    if plot:
-        plt.plot(range(N), x.real, label="Real part")
-        plt.plot(range(N), x.imag, label="Imag part")
-        # plt.plot(range(N), noise.real, label="Noise Real part")
-        # plt.plot(range(N), noise.imag, label="Noise Imag part")
-        plt.legend()
-        plt.title(f"Complex Signal (N={N}, k={k})")
-        plt.xlabel("Time [s]")
-    
-    return x, fs
+  x = x + noise
+
+  if plot:
+      plt.figure()
+      plt.plot(range(N), x.real, label="Real part")
+      plt.plot(range(N), x.imag, label="Imag part")
+      plt.legend()
+      plt.title(f"Complex Signal (N={N}, order={k})")
+      plt.xlabel("Time [s]")
+      plt.tight_layout()
+
+  return x, fs, f
 
 
-def music(x, M, plot=False):
-    # Get table R
-    print(len(x))
-    # R = (x[:, None] @ x.conj()[None, :]) / len(x)
-    # eigenvalues, eigenvectors = np.linalg.eig(R)
-    # print("Eigenvalues:", eigenvalues)
-    # plt.hist(eigenvalues.real, bins=100)
-    # plt.yscale('log')
-    # plt.show()
+def music_psd(x, m, k, true_freqs=None, plot=False):
+  N = len(x)
+  freqs = np.linspace(0, fs/2, N)
+
+  Y = np.zeros((m, N-m + 1), dtype=complex)
+  for i in range(N - m + 1):
+      Y[:, i] = x[i + m - 1 : i - 1 : -1] if i > 0 else x[m-1::-1]
+
+  R = (Y @ Y.conj().T) / (N - m + 1)
+  eigenvalues, eigenvectors = np.linalg.eig(R)
+  idx = np.argsort(eigenvalues)[::-1]
+  eigenvalues = eigenvalues[idx]
+  eigenvectors = eigenvectors[:, idx]
+
+  if plot:
+    plt.figure()
+    plt.plot(range(len(eigenvalues)), np.sort(eigenvalues.real)[::-1], 'o-')
+    plt.yscale("log")
+    plt.title(f"Eigenvalues of the Autocorrelation Matrix. Model order gt: {k}")
+    plt.xlabel("Index")
+    plt.ylabel("Eigenvalue (log scale)")
+    plt.grid()
+    plt.tight_layout()
+
+  noise_sub = eigenvectors[:, k:]
+
+  Pxx_music = np.zeros_like(freqs)
+
+  for i, f in enumerate(freqs):
+      a = np.exp(-1j * 2 * np.pi * f * np.arange(m) / fs)
+      denom = np.conj(a) @ noise_sub @ noise_sub.conj().T @ a
+      Pxx_music[i] = 1 / np.abs(denom)
+
+  if plot:
+    plt.figure()
+    plt.plot(freqs, Pxx_music.real)
+    if true_freqs is not None:
+        for tf in true_freqs:
+            plt.axvline(tf, color='r', linestyle='--', alpha=0.2, label='True Frequency' if 'True Frequency' not in plt.gca().get_legend_handles_labels()[1] else "")
+        if 'True Frequency' in plt.gca().get_legend_handles_labels()[1]:
+            plt.legend()
+    plt.title("MUSIC PSD Estimate")
+    plt.xlabel("Frequency")
+    plt.grid()
+    plt.tight_layout()
+  return Pxx_music
 
 
 if __name__ == '__main__':
     N = 1000
     fs = 8000
-    k = 3
-    x, fs = generate_signal(N, fs, k, plot=False)
+    k = 10
+    x, fs, true_freqs = generate_signal(N, fs, k, plot=True)
 
-    music(x, 4)
+    Pxx = music_psd(x, 50, k, abs(true_freqs), plot=True)
+    plt.show()
