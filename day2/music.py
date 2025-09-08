@@ -45,7 +45,7 @@ def generate_signal(N, fs, k, plot=False):
   return x, fs, f
 
 
-def music_psd(x, m, k, true_freqs=None, plot=False):
+def music_psd(x, m, k, true_freqs=None, fourier=False, plot=False):
   N = len(x)
   freqs = np.linspace(0, fs/2, N)
 
@@ -71,21 +71,32 @@ def music_psd(x, m, k, true_freqs=None, plot=False):
 
   noise_sub = eigenvectors[:, k:]
 
-  Pxx_music = np.zeros_like(freqs)
+  if fourier:
+    
+    noise_fft = np.fft.fft(noise_sub, n=N)  # shape (N, n_noise)
+    Pxx_music = 1 / np.sum(np.abs(noise_fft) ** 2, axis=1)
+    Pxx_music = Pxx_music[:N//2]  # Take positive frequencies
+    freqs = np.fft.fftfreq(N, d=1/fs)[:N//2]
 
-  for i, f in enumerate(freqs):
+
+
+
+  else:
+    
+    Pxx_music = np.zeros_like(freqs)
+    for i, f in enumerate(freqs):
       a = np.exp(-1j * 2 * np.pi * f * np.arange(m) / fs)
       denom = np.conj(a) @ noise_sub @ noise_sub.conj().T @ a
-      Pxx_music[i] = 1 / np.abs(denom)
+    Pxx_music[i] = 1 / np.abs(denom)
 
   if plot:
     plt.figure()
-    plt.plot(freqs, Pxx_music.real)
-    if true_freqs is not None:
-        for tf in true_freqs:
-            plt.axvline(tf, color='r', linestyle='--', alpha=0.2, label='True Frequency' if 'True Frequency' not in plt.gca().get_legend_handles_labels()[1] else "")
-        if 'True Frequency' in plt.gca().get_legend_handles_labels()[1]:
-            plt.legend()
+    plt.plot(freqs, Pxx_music)
+    # if true_freqs is not None:
+    #     for tf in true_freqs:
+    #         plt.axvline(tf, color='r', linestyle='--', alpha=0.2, label='True Frequency' if 'True Frequency' not in plt.gca().get_legend_handles_labels()[1] else "")
+    #     if 'True Frequency' in plt.gca().get_legend_handles_labels()[1]:
+    #         plt.legend()
     plt.title("MUSIC PSD Estimate")
     plt.xlabel("Frequency")
     plt.grid()
@@ -99,5 +110,5 @@ if __name__ == '__main__':
     k = 10
     x, fs, true_freqs = generate_signal(N, fs, k, plot=True)
 
-    Pxx = music_psd(x, 50, k, abs(true_freqs), plot=True)
+    Pxx = music_psd(x, 50, k, abs(true_freqs), fourier=True, plot=True)
     plt.show()
