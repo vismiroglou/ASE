@@ -72,17 +72,12 @@ def music_psd(x, m, k, true_freqs=None, fourier=False, plot=False):
   noise_sub = eigenvectors[:, k:]
 
   if fourier:
-    
     noise_fft = np.fft.fft(noise_sub, n=N)  # shape (N, n_noise)
     Pxx_music = 1 / np.sum(np.abs(noise_fft) ** 2, axis=1)
     Pxx_music = Pxx_music[:N//2]  # Take positive frequencies
     freqs = np.fft.fftfreq(N, d=1/fs)[:N//2]
 
-
-
-
   else:
-    
     Pxx_music = np.zeros_like(freqs)
     for i, f in enumerate(freqs):
       a = np.exp(-1j * 2 * np.pi * f * np.arange(m) / fs)
@@ -104,11 +99,41 @@ def music_psd(x, m, k, true_freqs=None, fourier=False, plot=False):
   return Pxx_music
 
 
-if __name__ == '__main__':
-    N = 1000
-    fs = 8000
-    k = 10
-    x, fs, true_freqs = generate_signal(N, fs, k, plot=True)
+def build_rhat(x, N, m):
+	L = m + 1
+	Nsnap = N - m
+	Y = np.zeros((L, Nsnap), dtype=complex)
+	for tt in range(Nsnap):
+		Y[:, tt] = x[tt:tt+L][::-1]   # y(t), y(t-1), ... y(t-m) ; reverse so index 0 is y(t)
 
-    Pxx = music_psd(x, 50, k, abs(true_freqs), fourier=True, plot=True)
-    plt.show()
+	Rhat = (Y @ Y.conj().T) / Nsnap
+
+	Rinv = np.linalg.inv(Rhat)
+	return Rhat, Rinv
+
+
+def capon(m, K):
+    L = m + 1
+    freqs = np.linspace(0, 0.5, K, endpoint=True)
+    a_all = np.exp(-1j * 2*np.pi * np.outer(np.arange(L), freqs))
+    P_capon = np.zeros(K)
+    for k in range(K):
+        a = a_all[:, k].reshape(-1,1)
+        denom = (a.conj().T @ Rinv @ a).item()
+        P_capon[k] = 1.0 / np.real(denom)   # MVDR/Capon power estimate (up to scaling)
+    return P_capon
+
+
+if __name__ == '__main__':
+    # Set parameters
+    fs = 8000 
+    N = 1024 
+    t = np.arange(N) / fs
+	
+	
+    x, fs, true_freqs = generate_signal(N=N, fs=fs, k=2, plot=False)
+    Rhat, Rinv = build_rhat(x, N, m=31)
+    
+
+    # Pxx = music_psd(x, 50, k, abs(true_freqs), fourier=True, plot=True)
+    # plt.show()
