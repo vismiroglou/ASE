@@ -1,6 +1,31 @@
 import numpy as np
 from scipy.signal.windows import kaiser
-from signal_1 import generate_signal
+from matplotlib import pyplot as plt
+from scipy.signal import chirp
+
+def generate_signal(N, fs, K, plot=False):
+    t = np.arange(N) / fs
+
+    a = np.random.normal(0, 10, K)
+    f = np.random.uniform(0, fs/2, 2*K)
+    
+    x = 0
+    for k in range(K):
+        x += a[k] * chirp(t, f0=f[2*k], f1=f[2*k+1], t1=t[-1], method='linear')
+
+    noise = np.random.normal(0, 5, size=N)
+
+    x = x + noise
+
+    if plot:
+        plt.figure(figsize=(15,3))
+        plt.plot(t, x.real, label="Real part")
+        plt.legend()
+        plt.title(f"Dynamic signal (N={N}, order={K})")
+        plt.xlabel("Time [s]")
+        plt.tight_layout()
+
+    return x, fs, f
 
 def get_kaiser_shape(A):
     """
@@ -19,7 +44,7 @@ def get_kaiser_shape(A):
     elif A >= 60:
         a = 0.12438 * (A + 6.3)
     
-    print(f'Kaiser window shape: {a}')
+    # print(f'Kaiser window shape: {a}')
     return a
 
 
@@ -36,7 +61,7 @@ def get_kaiser_length(Dfw, A, fs):
         float: Kaiser window length (N).
     """
     N = np.ceil((fs * 6 *(A + 12) / (Dfw * 155)) + 1).astype(int)
-    print(f'Kaiser window length: {N}')
+    # print(f'Kaiser window length: {N}')
     return N
 
 
@@ -49,15 +74,15 @@ def stft(x, fs=1, win=None, noverlap=0, nfft=None):
     n_frames = 1 + (len(x) - win_len) // hop
     if nfft is None:
         nfft = win_len
-    stft_matrix = np.zeros((n_frames, nfft), dtype=np.complex64)
+    stft_matrix = np.zeros((nfft, n_frames), dtype=np.complex64)
 
     for i in range(n_frames):
         start = i * hop
         frame = x[start:start + win_len] * win
-        stft_matrix[i, :] = np.fft.fft(frame, n=nfft)
+        stft_matrix[:, i] = np.fft.fft(frame, n=nfft)
 
     t = np.arange(n_frames) * hop / fs
-    f = np.fft.fftfreq(nfft, d=1/fs)
+    f = np.linspace(0, fs/2, nfft)
     return stft_matrix, f, t
 
 

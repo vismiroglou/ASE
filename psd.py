@@ -147,7 +147,8 @@ def bartlett(x, fs, L, plot=False):
 
     return pxx
 
-def welch(x, fs, L, overlap=0.5, window='hanning', plot=False):
+
+def welch(x, fs, overlap=0.5, window=None, plot=False):
     """
     Welch method for PSD estimation.
     x: input signal
@@ -157,7 +158,13 @@ def welch(x, fs, L, overlap=0.5, window='hanning', plot=False):
     plot: whether to plot the PSD
     """
     N = len(x)
-    M = N // L  # Length of each segment
+
+    if window.all() == None: # Default window
+        M = N // 50
+        window = np.hanning(M)
+    else:
+        M = len(window)
+
     step = int(M * (1 - overlap))
     if step < 1:
         raise ValueError("Overlap too high, step size < 1")
@@ -165,8 +172,7 @@ def welch(x, fs, L, overlap=0.5, window='hanning', plot=False):
     for start in range(0, N - M + 1, step):
         segments.append(x[start:start+M])
     segments = np.array(segments)
-    if window == 'hanning':
-        window = np.hanning(M)
+    
 
     pxx = 0
     for seg in segments:
@@ -182,6 +188,7 @@ def welch(x, fs, L, overlap=0.5, window='hanning', plot=False):
         plt.legend()
         plt.grid(True)
     return pxx
+
 
 def ds_analytic(x, fs, plot=False):
     x_r = x.real
@@ -222,7 +229,7 @@ if __name__ == '__main__':
     #     pxx = bartlett(x, fs, L, True)
     #     pxx = welch(x, fs, L, 0.5, 'hanning', True)
     # plt.savefig('barlet_welch_1000.png')
-    plt.figure(figsize=(10,4))
-    ds_analytic(x, fs, plot=True)
-    plt.savefig('discrete_analytic.png')
-    plt.show()
+    # plt.figure(figsize=(10,4))
+    # ds_analytic(x, fs, plot=True)
+    # plt.savefig('discrete_analytic.png')
+    # plt.show()
