@@ -15,7 +15,7 @@ def generate_signal(N, fs, K, plot=False):
 
     noise = np.random.normal(0, 5, size=N)
 
-    x = x + noise
+    # x = x + noise
 
     if plot:
         plt.figure(figsize=(15,3))
@@ -65,24 +65,23 @@ def get_kaiser_length(Dfw, A, fs):
     return N
 
 
-def stft(x, fs=1, win=None, noverlap=0, nfft=None):
+def stft(x, fs=1, win=None, noverlap=0):
     assert win is not None, "Window function must be provided"
     x = np.asarray(x)
     win = np.asarray(win)
     win_len = len(win)
     hop = win_len - noverlap
     n_frames = 1 + (len(x) - win_len) // hop
-    if nfft is None:
-        nfft = win_len
+    nfft = win_len
     stft_matrix = np.zeros((nfft, n_frames), dtype=np.complex64)
 
     for i in range(n_frames):
         start = i * hop
         frame = x[start:start + win_len] * win
-        stft_matrix[:, i] = np.fft.fft(frame, n=nfft)
+        stft_matrix[:, i] = np.fft.fft(frame)
 
     t = np.arange(n_frames) * hop / fs
-    f = np.linspace(0, fs/2, nfft)
+    f = np.fft.fftfreq(nfft)
     return stft_matrix, f, t
 
 
