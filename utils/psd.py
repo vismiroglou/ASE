@@ -23,18 +23,13 @@ Day 1
 import numpy as np
 from matplotlib import pyplot as plt
 
-def generate_signal(N, plot=False):
+def generate_signal(N, fs, A, f, plot=False):
     fs = 8000
-    A1, f1 = 2, 500
-    A2, f2 = 4, 2500
+    A = np.array(A)
+    f = np.array(f)
     t = np.arange(N) / fs   # time vector in seconds
      
-    # Complex exponentials (e^{j2πft})
-    x1 = A1 * np.exp(1j * 2 * np.pi * f1 * t)
-    x2 = A2 * np.exp(1j * 2 * np.pi * f2 * t)
-
-    # Combined complex signal
-    x = x1 + x2
+    x = np.sum(A[:, np.newaxis] * np.exp(1j * 2 * np.pi * f[:, np.newaxis] * t), axis=0)
 
     # Add complex Gaussian noise
     np.random.seed(42)
@@ -53,7 +48,7 @@ def generate_signal(N, plot=False):
         plt.grid(True)
         plt.savefig(f'Signal_N_{N}.png')
 
-    return x, fs
+    return x
 
 
 def periodogram(x, fs, plot=False):
@@ -216,20 +211,3 @@ def ds_analytic(x, fs, plot=False):
     plt.ylabel("PSD")
     plt.legend()
     plt.grid(True)
-
-  
-if __name__ == '__main__':
-    x, fs = generate_signal(100,False)
-    # plt.show()
-    # ds_analytic(x, fs, True)
-    # pxx = periodogram(x, fs, True)
-    # pxx = correlogram(x, fs, True)
-    # plt.figure(figsize=(10,4))
-    # for L in (5, 10, 50):
-    #     pxx = bartlett(x, fs, L, True)
-    #     pxx = welch(x, fs, L, 0.5, 'hanning', True)
-    # plt.savefig('barlet_welch_1000.png')
-    # plt.figure(figsize=(10,4))
-    # ds_analytic(x, fs, plot=True)
-    # plt.savefig('discrete_analytic.png')
-    # plt.show()
